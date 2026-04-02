@@ -21,6 +21,8 @@ CMD=(
   --comment
   --duet
   --stitch
+  --no-content-check-lite
+  --no-copyright-check
   --cover "$COVER_PATH"
   --request-id "$REQUEST_ID"
   --screenshot-dir "$SCREENSHOT_DIR"

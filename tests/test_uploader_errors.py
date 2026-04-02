@@ -448,3 +448,60 @@ def test_cover_missing_file_returns_file_not_found(tmp_path):
     )
     assert result.ok is False
     assert result.error_code == ErrorCode.FILE_NOT_FOUND
+
+
+def test_content_modal_flow_adds_expected_steps(monkeypatch, tmp_path):
+    video = tmp_path / "n.mp4"
+    video.write_text("x", encoding="utf-8")
+
+    class DummyConnector:
+        def __init__(self, cdp_url: str):
+            self.cdp_url = cdp_url
+
+        def connect(self):
+            return SimpleNamespace(page=DummyPage())
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.CDPConnector", DummyConnector)
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_captcha", lambda page: False)
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.is_login_required", lambda page: False
+    )
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_rate_limit", lambda page: False)
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.has_content_rejection", lambda page: False
+    )
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_network_error", lambda page: False)
+    modal_states = iter([True, False])
+
+    def modal_present(self, page, cfg):
+        _ = self, page, cfg
+        return next(modal_states, False)
+
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.TikTokCDPUploader._is_content_modal_present",
+        modal_present,
+    )
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.TikTokCDPUploader._click_if_visible",
+        lambda self, page, selectors: True,
+    )
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.TikTokCDPUploader._set_checkbox_state",
+        lambda self, page, selectors, desired: True,
+    )
+
+    result = TikTokCDPUploader().upload(
+        UploadRequest(
+            video_path=str(video),
+            content_check_lite=False,
+            copyright_check=False,
+        )
+    )
+    assert result.ok is True
+    step_names = [s.name for s in result.steps]
+    assert "toggle_content_check" in step_names
+    assert "continue_content_modal" in step_names
+    assert "retry_post_after_content_modal" in step_names

@@ -25,6 +25,8 @@ uv run tiktok-uploader-cdp [options]
 - `--comment` / `--no-comment`
 - `--duet` / `--no-duet`
 - `--stitch` / `--no-stitch`
+- `--content-check-lite` / `--no-content-check-lite`
+- `--copyright-check` / `--no-copyright-check`
 - `--cover /abs/path/image.jpg`
 
 ## Automation Options
@@ -44,6 +46,8 @@ uv run tiktok-uploader-cdp \
   --comment \
   --duet \
   --stitch \
+  --no-content-check-lite \
+  --no-copyright-check \
   --cover /abs/path/cover.jpg \
   --request-id job-001 \
   --screenshot-dir /tmp/tiktok-uploader-cdp \

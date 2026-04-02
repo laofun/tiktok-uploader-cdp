@@ -57,6 +57,11 @@ Store at least:
 - `steps`
 - `artifacts.error_screenshot` (if present)
 
+For restriction scenarios, inspect step names:
+- `toggle_content_check`
+- `continue_content_modal`
+- `retry_post_after_content_modal`
+
 ## Operational Guardrails
 
 - Do not auto-retry infinite loops.

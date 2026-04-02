@@ -22,6 +22,8 @@ uv run tiktok-uploader-cdp \
   --comment \
   --duet \
   --stitch \
+  --no-content-check-lite \
+  --no-copyright-check \
   --cover /abs/path/cover.jpg \
   --request-id job-123 \
   --screenshot-dir /tmp/tiktok-uploader-cdp
@@ -65,6 +67,7 @@ Use `--dry-run` to validate CDP connection, login state, captcha state, upload i
 - Interactivity toggles: `--comment/--no-comment`, `--duet/--no-duet`, `--stitch/--no-stitch`.
 - Cover image upload: `--cover /abs/path/image.jpg`.
 - Mention/hashtag input handling using dropdown-aware typing flow.
+- Content restriction modal remediation flow (`View details` / toggle checks / `Continue anyway` / retry post).
 
 ## Documentation Map
 

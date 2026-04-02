@@ -20,6 +20,8 @@ class UploadRequest:
     duet: bool = True
     stitch: bool = True
     cover_path: str | None = None
+    content_check_lite: bool = True
+    copyright_check: bool = True
     config_path: str | None = None
     dry_run: bool = False
     request_id: str | None = None

@@ -86,9 +86,10 @@ Symptoms:
 - page indicates policy/community/restriction rejection
 
 Actions:
-1. Stop auto-retry.
-2. Send clip/caption to content review flow.
-3. Edit content or metadata based on policy feedback.
+1. First inspect step trace for:
+`toggle_content_check`, `continue_content_modal`, `retry_post_after_content_modal`.
+2. If those steps are missing, update selectors in config for modal/toggles.
+3. If those steps executed but still rejected, stop auto-retry and route to content revision flow.
 4. Submit a new upload job after content changes.
 
 ## 9) network_error

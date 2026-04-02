@@ -34,5 +34,8 @@ High-impact keys:
 - `schedule_*`
 - `cover_*`
 - `mention_box` / `mention_user_id`
+- `content_modal*`
+- `content_check_lite_toggle`
+- `copyright_check_toggle`
 
 When TikTok UI changes, update `config.toml` first before changing code paths.

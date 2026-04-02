@@ -35,6 +35,7 @@ Use this skill for all changes in this repository.
 - Schedule support (UTC): min 20 minutes, max 10 days, 5-minute rounding.
 - Visibility support: `everyone|friends|only_you`.
 - Interactivity toggles: comment/duet/stitch.
+- Content-check toggles in restriction modal: `content_check_lite` and `copyright_check`.
 - Cover upload support.
 - Mention/hashtag dropdown-aware typing behavior.
 
@@ -48,6 +49,11 @@ Use this skill for all changes in this repository.
 - Config file: `src/tiktok_uploader_cdp/config.toml`
 
 When changing behavior, update tests in `tests/` to keep contract stable.
+
+For restriction modal handling, keep step observability:
+- `toggle_content_check`
+- `continue_content_modal`
+- `retry_post_after_content_modal`
 
 ## Validation Commands
 

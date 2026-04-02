@@ -28,6 +28,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--comment", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--duet", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--stitch", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument(
+        "--content-check-lite",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+    parser.add_argument(
+        "--copyright-check",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
     parser.add_argument("--cover", default=None)
     parser.add_argument(
         "--upload-url",
@@ -62,6 +72,8 @@ def main() -> None:
         duet=args.duet,
         stitch=args.stitch,
         cover_path=args.cover,
+        content_check_lite=args.content_check_lite,
+        copyright_check=args.copyright_check,
         dry_run=args.dry_run,
         request_id=args.request_id,
         screenshot_dir=args.screenshot_dir,

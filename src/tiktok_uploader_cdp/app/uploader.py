@@ -150,19 +150,27 @@ class TikTokCDPUploader:
                 cfg.selectors_list("post_button"),
                 self._ms(cfg, "implicit_wait_seconds", 30),
             )
-            try:
-                post_button.click()
-            except Exception as exc:
-                raise UploadError(
-                    code=ErrorCode.POST_FAILED,
-                    message=f"Unable to click post button: {exc}",
-                    recoverable=True,
-                    recommended_action="retry_once_then_human_review",
-                ) from exc
+            self._click_post_button(post_button)
             steps.append(StepResult("click_post", True, "clicked"))
 
             if self._handle_optional_post_now_modal(page, cfg):
                 steps.append(StepResult("click_post_now_modal", True, "clicked"))
+
+            content_steps, should_retry_post = self._handle_content_restriction_modal(
+                page,
+                req,
+                cfg,
+            )
+            steps.extend(content_steps)
+
+            if should_retry_post:
+                post_button = find_first_visible(
+                    page,
+                    cfg.selectors_list("post_button"),
+                    self._ms(cfg, "implicit_wait_seconds", 30),
+                )
+                self._click_post_button(post_button)
+                steps.append(StepResult("retry_post_after_content_modal", True, "clicked"))
 
             publish_confirmation = find_first_visible(
                 page,
@@ -312,14 +320,6 @@ class TikTokCDPUploader:
                 recommended_action="backoff_and_retry_later",
             )
 
-        if has_content_rejection(page):
-            raise UploadError(
-                code=ErrorCode.CONTENT_REJECTED,
-                message="TikTok rejected this content under policy/restriction rules",
-                recoverable=False,
-                recommended_action="revise_content_then_retry",
-            )
-
         if has_network_error(page):
             raise UploadError(
                 code=ErrorCode.NETWORK_ERROR,
@@ -452,12 +452,27 @@ class TikTokCDPUploader:
 
         edit_btn = find_first_visible(page, cfg.selectors_list("cover_edit_button"), 8000)
         edit_btn.click()
-        upload_tab = find_first_visible(page, cfg.selectors_list("cover_upload_tab"), 5000)
-        upload_tab.click()
-        upload_input = find_first_visible(page, cfg.selectors_list("cover_upload_input"), 5000)
+
+        # Cover modal often changes markup; try select tab then upload tab.
+        self._click_optional_tab(
+            page,
+            cfg.selectors_list("cover_select_tab"),
+            cfg.selector_string("cover_modal_select_tab_name", "Select cover"),
+        )
+        self._click_optional_tab(
+            page,
+            cfg.selectors_list("cover_upload_tab"),
+            cfg.selector_string("cover_modal_upload_tab_name", "Upload cover"),
+        )
+
+        upload_input = self._find_first_attached(page, cfg.selectors_list("cover_upload_input"), 6000)
         upload_input.set_input_files(cover_path)
-        confirm = find_first_visible(page, cfg.selectors_list("cover_upload_confirm"), 5000)
-        confirm.click()
+        confirm = self._find_first_attached(page, cfg.selectors_list("cover_upload_confirm"), 6000)
+        try:
+            confirm.scroll_into_view_if_needed()
+            confirm.click()
+        except Exception:
+            confirm.click(force=True)
 
     def _set_schedule(self, page, schedule: datetime, cfg: RuntimeConfig) -> None:
         switch = find_first_visible(page, cfg.selectors_list("schedule_switch"), 8000)
@@ -564,6 +579,152 @@ class TikTokCDPUploader:
                 if btn.is_visible(timeout=1200):
                     btn.click()
                     return True
+            except Exception:
+                continue
+        return False
+
+    def _click_post_button(self, post_button) -> None:
+        try:
+            post_button.scroll_into_view_if_needed()
+        except Exception:
+            pass
+        try:
+            post_button.click()
+        except Exception:
+            try:
+                post_button.click(force=True)
+            except Exception as exc:
+                raise UploadError(
+                    code=ErrorCode.POST_FAILED,
+                    message=f"Unable to click post button: {exc}",
+                    recoverable=True,
+                    recommended_action="retry_once_then_human_review",
+                ) from exc
+
+    def _click_optional_tab(self, page, selectors: list[str], tab_name: str) -> bool:
+        for selector in selectors:
+            try:
+                tab = page.locator(selector).first
+                if tab.is_visible(timeout=1200):
+                    tab.click()
+                    return True
+            except Exception:
+                continue
+        try:
+            tab = page.get_by_text(tab_name).first
+            if tab.is_visible(timeout=1200):
+                tab.click()
+                return True
+        except Exception:
+            pass
+        return False
+
+    def _find_first_attached(self, page, selectors: list[str], timeout_ms: int):
+        for selector in selectors:
+            try:
+                loc = page.locator(selector).first
+                loc.wait_for(state="attached", timeout=timeout_ms)
+                return loc
+            except Exception:
+                continue
+        raise UploadError(
+            code=ErrorCode.UI_CHANGED,
+            message=f"No attached selector matched from candidates: {selectors}",
+            recoverable=False,
+            recommended_action="update_selectors_then_retry",
+        )
+
+    def _handle_content_restriction_modal(
+        self,
+        page,
+        req: UploadRequest,
+        cfg: RuntimeConfig,
+    ) -> tuple[list[StepResult], bool]:
+        steps: list[StepResult] = []
+        modal_present = self._is_content_modal_present(page, cfg) or has_content_rejection(page)
+        if not modal_present:
+            return steps, False
+
+        self._click_if_visible(page, cfg.selectors_list("content_modal_view_details"))
+
+        toggle_actions: list[str] = []
+        if not req.content_check_lite:
+            if self._set_checkbox_state(page, cfg.selectors_list("content_check_lite_toggle"), False):
+                toggle_actions.append("content_check_lite=off")
+        if not req.copyright_check:
+            if self._set_checkbox_state(page, cfg.selectors_list("copyright_check_toggle"), False):
+                toggle_actions.append("copyright_check=off")
+        steps.append(
+            StepResult(
+                "toggle_content_check",
+                True,
+                ",".join(toggle_actions) if toggle_actions else "no_toggle_change",
+            )
+        )
+
+        continued = self._click_if_visible(page, cfg.selectors_list("content_modal_continue"))
+        if not continued:
+            self._click_if_visible(page, cfg.selectors_list("content_modal_close"))
+        steps.append(
+            StepResult(
+                "continue_content_modal",
+                True,
+                "continue_clicked" if continued else "modal_closed",
+            )
+        )
+
+        sleep(1)
+        if self._is_content_modal_present(page, cfg) or has_content_rejection(page):
+            raise UploadError(
+                code=ErrorCode.CONTENT_REJECTED,
+                message="TikTok flagged the video as content-restricted after posting",
+                recoverable=False,
+                recommended_action="revise_content_then_retry",
+            )
+        return steps, True
+
+    def _is_content_modal_present(self, page, cfg: RuntimeConfig) -> bool:
+        for selector in cfg.selectors_list("content_modal"):
+            try:
+                if page.locator(selector).first.is_visible(timeout=1000):
+                    return True
+            except Exception:
+                continue
+        return False
+
+    def _click_if_visible(self, page, selectors: list[str]) -> bool:
+        for selector in selectors:
+            try:
+                el = page.locator(selector).first
+                if el.is_visible(timeout=1200):
+                    try:
+                        el.scroll_into_view_if_needed()
+                    except Exception:
+                        pass
+                    try:
+                        el.click()
+                    except Exception:
+                        el.click(force=True)
+                    return True
+            except Exception:
+                continue
+        return False
+
+    def _set_checkbox_state(self, page, selectors: list[str], desired: bool) -> bool:
+        for selector in selectors:
+            try:
+                cb = page.locator(selector).first
+                cb.wait_for(state="attached", timeout=1500)
+                try:
+                    current = bool(cb.is_checked())
+                except Exception:
+                    current = desired
+                if current != desired:
+                    try:
+                        cb.click()
+                    except Exception:
+                        cb.click(force=True)
+                return True
             except Exception:
                 continue
         return False

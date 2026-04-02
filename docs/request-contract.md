@@ -14,6 +14,8 @@ This document defines request inputs expected by CLI/API.
 - `comment`: bool
 - `duet`: bool
 - `stitch`: bool
+- `content_check_lite`: bool (attempt disable when content restriction modal appears)
+- `copyright_check`: bool (attempt disable when content restriction modal appears)
 - `cover_path`: optional cover path (`png|jpg|jpeg`)
 - `config_path`: optional override for config file
 - `dry_run`: stop before post
@@ -25,3 +27,4 @@ This document defines request inputs expected by CLI/API.
 - schedule must satisfy TikTok window constraints and 5-minute rounding policy
 - cover file path must exist before browser actions start
 - video file path must exist before browser actions start
+- content-restriction modal flow emits `toggle_content_check` and `continue_content_modal` steps when triggered

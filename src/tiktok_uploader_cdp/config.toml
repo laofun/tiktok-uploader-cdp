@@ -61,7 +61,42 @@ schedule_timepicker_minutes = ["xpath=//span[contains(@class, 'tiktok-timepicker
 
 cover_preview = ["xpath=//img[contains(@class, 'cover-image')]"]
 cover_edit_button = ["xpath=//div[contains(@class, 'edit-container')]"]
+cover_select_tab = [
+  "xpath=//div[contains(text(), 'Select cover')]",
+  "div:has-text('Select cover')",
+]
 cover_upload_tab = ["xpath=//div[contains(text(), 'Upload cover')]"]
-cover_upload_input = ["xpath=//input[@type='file' and @accept='image/png, image/jpeg, image/jpg']"]
+cover_upload_input = [
+  "xpath=//div[contains(@class,'upload-image-container')]//input[@type='file']",
+  "xpath=//input[@type='file' and @accept='image/png, image/jpeg, image/jpg']",
+]
 cover_upload_confirm = ["xpath=//div[contains(@class, 'cover-edit-footer')]//button[contains(@class, 'TUXButton--primary')]"]
 cover_exit = ["xpath=//div[contains(@class, 'cover-edit')]//div[contains(@class, 'close') or contains(@class, 'exit')]"]
+
+cover_modal_select_tab_name = "Select cover"
+cover_modal_upload_tab_name = "Upload cover"
+
+content_modal = [
+  "css=div.status-result.status-warn",
+  "xpath=//div[contains(@class,'status-result') and contains(@class,'status-warn')]",
+]
+content_modal_view_details = [
+  "css=div.status-result.status-warn span.status-tip .text-link",
+  "xpath=//div[contains(@class,'status-result') and contains(@class,'status-warn')]//span[contains(@class,'text-link') or contains(text(),'View details')]",
+]
+content_modal_continue = [
+  "css=div.status-result.status-warn button.TUXButton--primary",
+  "xpath=//div[contains(@class,'status-result') and contains(@class,'status-warn')]//button[contains(.,'Continue anyway') or contains(.,'Continue')]",
+]
+content_modal_close = [
+  "css=div.common-modal-close",
+  "xpath=//div[contains(@class,'common-modal-close')]",
+]
+content_check_lite_toggle = [
+  "xpath=//div[contains(@class,'status-result') and contains(@class,'status-warn')]//*[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'),'content check lite')]/ancestor::*[self::div or self::label][1]//input[@type='checkbox']",
+  "xpath=//input[contains(@name,'content_check_lite') or contains(@id,'content_check_lite')]",
+]
+copyright_check_toggle = [
+  "xpath=//div[contains(@class,'status-result') and contains(@class,'status-warn')]//*[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'),'copyright')]/ancestor::*[self::div or self::label][1]//input[@type='checkbox']",
+  "xpath=//input[contains(@name,'copyright_check') or contains(@id,'copyright_check')]",
+]
