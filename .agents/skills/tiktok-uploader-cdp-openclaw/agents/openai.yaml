@@ -1,0 +1,4 @@
+interface:
+  display_name: "TikTok CDP OpenClaw"
+  short_description: "Maintain CDP-only TikTok uploader with stable orchestrator error contract"
+  default_prompt: "Use the tiktok-uploader-cdp-openclaw skill to implement or review changes while preserving CDP-only auth and machine-readable OpenClaw error semantics."

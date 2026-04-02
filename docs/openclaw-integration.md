@@ -1,0 +1,57 @@
+# OpenClaw Integration Guide
+
+This guide describes how OpenClaw should orchestrate `tiktok-uploader-cdp` safely.
+
+## Preconditions
+
+1. Browser is launched with CDP enabled (example endpoint `http://127.0.0.1:9222`).
+2. Target TikTok account is already logged in by user.
+3. Upload file exists at an absolute path.
+4. OpenClaw passes a unique `request_id` per job.
+
+## Recommended Invocation
+
+```bash
+uv run tiktok-uploader-cdp \
+  --cdp-url http://127.0.0.1:9222 \
+  --video /abs/path/video.mp4 \
+  --description "caption" \
+  --request-id job-123 \
+  --screenshot-dir /tmp/tiktok-uploader-cdp
+```
+
+Use `--dry-run` for preflight checks before real publish.
+
+## Decision State Machine
+
+1. Parse JSON output.
+2. If `ok=true`, mark job success.
+3. If `ok=false`, branch by `error_code`:
+- `captcha_detected`: set job state `WAIT_HUMAN_CHALLENGE`, notify operator, retry only after manual completion.
+- `rate_limited`: set state `WAIT_BACKOFF`, retry using delayed exponential backoff.
+- `network_error`: set state `WAIT_BACKOFF`, verify connectivity, retry with backoff.
+- `not_logged_in`: set state `WAIT_USER_LOGIN`, notify operator to re-login in the same browser profile.
+- `content_rejected`: set state `NEEDS_CONTENT_REVISION`, do not auto-retry without content change.
+- `ui_changed`: set state `NEEDS_MAINTENANCE`, create engineering alert with screenshot and step trace.
+- `cdp_connect_failed` or `no_browser_context`: set state `ENV_FIX_REQUIRED`, restart browser or repair CDP launch options.
+- `processing_stuck`: allow one delayed retry; if repeated, escalate for platform-side investigation.
+- `upload_timeout` or `post_failed`: allow one automatic retry, then escalate to human review.
+- `unknown_error`: direct escalate to human review.
+
+## Logging Requirements
+
+Store at least:
+
+- `request_id`
+- `error_code`
+- `recommended_action`
+- `retry_hint`
+- `steps`
+- `artifacts.error_screenshot` (if present)
+
+## Operational Guardrails
+
+- Do not auto-retry infinite loops.
+- Do not override `ui_changed` into generic retry.
+- Keep parser tolerant to extra fields but strict on stable keys.
+- Keep fallback policy declarative and driven by `error_code` + `retry_hint`.
