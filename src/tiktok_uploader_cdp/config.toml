@@ -1,0 +1,67 @@
+[timeouts]
+implicit_wait_seconds = 30
+explicit_wait_seconds = 60
+uploading_wait_seconds = 180
+add_hashtag_wait_seconds = 5
+processing_ready_timeout_seconds = 90
+
+[limits]
+schedule_min_minutes = 20
+schedule_max_days = 10
+schedule_minute_multiple = 5
+
+[file_types]
+supported_image_file_types = ["png", "jpg", "jpeg"]
+
+[selectors]
+upload_input = [
+  "input[type='file']",
+  "xpath=//input[@type='file']",
+]
+description = [
+  "xpath=//div[@contenteditable='true']",
+  "div[contenteditable='true']",
+]
+post_button = [
+  "xpath=//button[@data-e2e='post_video_button']",
+  "button[data-e2e='post_video_button']",
+]
+post_now_modal = [
+  "xpath=//button[.//div[text()='Post now']]",
+  "xpath=//button[contains(., 'Post now')]",
+  "button:has-text('Post now')",
+]
+publish_confirm = [
+  "xpath=//div[contains(text(), 'Your video has been uploaded') or contains(text(), 'Video published') or contains(text(), '视频已发布')]",
+]
+
+visibility_dropdown = [
+  "xpath=//div[@data-e2e='video_visibility_container']//button[@role='combobox']",
+]
+visibility_option_xpath_template = "//div[@role='option' and contains(., '{text}')]"
+
+comment_toggle = ["xpath=//label[.='Comment']/following-sibling::div/input"]
+duet_toggle = ["xpath=//label[.='Duet']/following-sibling::div/input"]
+stitch_toggle = ["xpath=//label[.='Stitch']/following-sibling::div/input"]
+
+mention_box = ["xpath=//div[contains(@class, 'mention-list-popover')]"]
+mention_user_id = ["xpath=//span[contains(@class, 'user-id')]"]
+
+schedule_switch = ["xpath=//*[@id='tux-1']"]
+schedule_date_picker = ["xpath=//div[contains(@class, 'date-picker-input')]"]
+schedule_calendar = ["xpath=//div[contains(@class, 'calendar-wrapper')]"]
+schedule_calendar_month = ["xpath=//span[contains(@class, 'month-title')]"]
+schedule_calendar_valid_days = ["xpath=//div[contains(@class, 'days-wrapper')]//span[contains(@class, 'day') and contains(@class, 'valid')]"]
+schedule_calendar_arrows = ["xpath=//span[contains(@class, 'arrow')]"]
+schedule_time_picker = ["xpath=//div[contains(@class, 'time-picker-input')]"]
+schedule_time_picker_text = ["xpath=//div[contains(@class, 'time-picker-input')]/*[1]"]
+schedule_time_picker_container = ["xpath=//div[contains(@class, 'time-picker-container') or contains(@class, 'time-picker')]"]
+schedule_timepicker_hours = ["xpath=//span[contains(@class, 'tiktok-timepicker-left')]"]
+schedule_timepicker_minutes = ["xpath=//span[contains(@class, 'tiktok-timepicker-right')]"]
+
+cover_preview = ["xpath=//img[contains(@class, 'cover-image')]"]
+cover_edit_button = ["xpath=//div[contains(@class, 'edit-container')]"]
+cover_upload_tab = ["xpath=//div[contains(text(), 'Upload cover')]"]
+cover_upload_input = ["xpath=//input[@type='file' and @accept='image/png, image/jpeg, image/jpg']"]
+cover_upload_confirm = ["xpath=//div[contains(@class, 'cover-edit-footer')]//button[contains(@class, 'TUXButton--primary')]"]
+cover_exit = ["xpath=//div[contains(@class, 'cover-edit')]//div[contains(@class, 'close') or contains(@class, 'exit')]"]

@@ -14,6 +14,7 @@ class ErrorCode(str, Enum):
     NETWORK_ERROR = "network_error"
     UI_CHANGED = "ui_changed"
     FILE_NOT_FOUND = "file_not_found"
+    INVALID_SCHEDULE = "invalid_schedule"
     PROCESSING_STUCK = "processing_stuck"
     UPLOAD_TIMEOUT = "upload_timeout"
     POST_FAILED = "post_failed"

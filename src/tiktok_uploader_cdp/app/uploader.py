@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from os import makedirs
 from os.path import exists
 from pathlib import Path
@@ -20,13 +20,7 @@ from tiktok_uploader_cdp.infra.detectors import (
     is_login_required,
 )
 from tiktok_uploader_cdp.infra.page_ops import find_first_visible
-from tiktok_uploader_cdp.infra.selectors import (
-    DESCRIPTION_SELECTORS,
-    POST_BUTTON_SELECTORS,
-    POST_NOW_MODAL_SELECTORS,
-    PUBLISH_CONFIRM_SELECTORS,
-    UPLOAD_INPUT_SELECTORS,
-)
+from tiktok_uploader_cdp.infra.runtime_config import RuntimeConfig, load_runtime_config
 
 
 @dataclass(slots=True)
@@ -34,6 +28,9 @@ class TikTokCDPUploader:
     def upload(self, req: UploadRequest) -> UploadResult:
         steps: list[StepResult] = []
         artifacts: dict[str, str] = {}
+
+        cfg = load_runtime_config(req.config_path)
+
         if not exists(req.video_path):
             return UploadResult(
                 ok=False,
@@ -42,6 +39,34 @@ class TikTokCDPUploader:
                 recoverable=False,
                 recommended_action="fix_input_file_path",
                 retry_hint="do_not_retry_without_input_change",
+                request_id=req.request_id,
+                steps=steps,
+                artifacts=artifacts,
+            )
+
+        if req.cover_path and not exists(req.cover_path):
+            return UploadResult(
+                ok=False,
+                message=f"Cover file not found: {req.cover_path}",
+                error_code=ErrorCode.FILE_NOT_FOUND,
+                recoverable=False,
+                recommended_action="fix_cover_file_path",
+                retry_hint="do_not_retry_without_input_change",
+                request_id=req.request_id,
+                steps=steps,
+                artifacts=artifacts,
+            )
+
+        try:
+            normalized_schedule = self._normalize_schedule(req.schedule, cfg)
+        except UploadError as exc:
+            return UploadResult(
+                ok=False,
+                message=exc.message,
+                error_code=exc.code,
+                recoverable=exc.recoverable,
+                recommended_action=exc.recommended_action,
+                retry_hint=self._retry_hint(exc.code, exc.recoverable),
                 request_id=req.request_id,
                 steps=steps,
                 artifacts=artifacts,
@@ -59,23 +84,48 @@ class TikTokCDPUploader:
             self._guard_login_and_captcha(page)
             steps.append(StepResult("guard_login_captcha", True, "clean"))
 
-            upload_input = find_first_visible(page, UPLOAD_INPUT_SELECTORS, 10_000)
+            upload_input = find_first_visible(
+                page,
+                cfg.selectors_list("upload_input"),
+                self._ms(cfg, "implicit_wait_seconds", 30),
+            )
             upload_input.set_input_files(req.video_path)
             steps.append(StepResult("attach_video", True, req.video_path))
-            self._wait_processing_ready(page, 90_000)
+
+            self._wait_processing_ready(
+                page,
+                self._ms(cfg, "processing_ready_timeout_seconds", 90),
+                cfg,
+            )
             steps.append(StepResult("wait_processing_ready", True, "post_button_enabled"))
 
+            self._set_interactivity(page, req.comment, req.duet, req.stitch, cfg)
+            steps.append(
+                StepResult(
+                    "set_interactivity",
+                    True,
+                    f"comment={req.comment},duet={req.duet},stitch={req.stitch}",
+                )
+            )
+
+            self._set_visibility(page, req.visibility, cfg)
+            steps.append(StepResult("set_visibility", True, req.visibility))
+
             if req.description:
-                description_box = find_first_visible(page, DESCRIPTION_SELECTORS, 8_000)
-                description_box.click()
-                description_box.press("Control+A")
-                description_box.press("Backspace")
-                description_box.fill(req.description)
+                self._set_description(page, req.description, cfg)
+                steps.append(StepResult("set_description", True, f"len={len(req.description)}"))
+
+            if req.cover_path:
+                self._set_cover(page, req.cover_path, cfg)
+                steps.append(StepResult("set_cover", True, req.cover_path))
+
+            if normalized_schedule is not None:
+                self._set_schedule(page, normalized_schedule, cfg)
                 steps.append(
                     StepResult(
-                        "set_description",
+                        "set_schedule",
                         True,
-                        f"len={len(req.description)}",
+                        normalized_schedule.isoformat(),
                     )
                 )
 
@@ -95,7 +145,11 @@ class TikTokCDPUploader:
                     metadata={"final_url": page.url, "dry_run": True},
                 )
 
-            post_button = find_first_visible(page, POST_BUTTON_SELECTORS, 10_000)
+            post_button = find_first_visible(
+                page,
+                cfg.selectors_list("post_button"),
+                self._ms(cfg, "implicit_wait_seconds", 30),
+            )
             try:
                 post_button.click()
             except Exception as exc:
@@ -106,12 +160,13 @@ class TikTokCDPUploader:
                     recommended_action="retry_once_then_human_review",
                 ) from exc
             steps.append(StepResult("click_post", True, "clicked"))
-            if self._handle_optional_post_now_modal(page):
+
+            if self._handle_optional_post_now_modal(page, cfg):
                 steps.append(StepResult("click_post_now_modal", True, "clicked"))
 
             publish_confirmation = find_first_visible(
                 page,
-                PUBLISH_CONFIRM_SELECTORS,
+                cfg.selectors_list("publish_confirm"),
                 req.timeout_seconds * 1000,
             )
             _ = publish_confirmation.inner_text()
@@ -198,6 +253,40 @@ class TikTokCDPUploader:
         finally:
             connector.close()
 
+    def _ms(self, cfg: RuntimeConfig, key: str, default_seconds: int) -> int:
+        return int(cfg.timeouts.get(key, default_seconds)) * 1000
+
+    def _normalize_schedule(
+        self,
+        schedule: datetime | None,
+        cfg: RuntimeConfig,
+    ) -> datetime | None:
+        if schedule is None:
+            return None
+
+        if schedule.tzinfo is None:
+            schedule = schedule.replace(tzinfo=timezone.utc)
+
+        schedule = schedule.astimezone(timezone.utc)
+
+        minute_multiple = int(cfg.limits.get("schedule_minute_multiple", 5))
+        if schedule.minute % minute_multiple != 0:
+            schedule += timedelta(minutes=(minute_multiple - (schedule.minute % minute_multiple)))
+            schedule = schedule.replace(second=0, microsecond=0)
+
+        now = datetime.now(timezone.utc)
+        min_dt = now + timedelta(minutes=int(cfg.limits.get("schedule_min_minutes", 20)))
+        max_dt = now + timedelta(days=int(cfg.limits.get("schedule_max_days", 10)))
+
+        if schedule < min_dt or schedule > max_dt:
+            raise UploadError(
+                code=ErrorCode.INVALID_SCHEDULE,
+                message="Schedule must be 20 minutes to 10 days in the future (UTC)",
+                recoverable=False,
+                recommended_action="fix_schedule_and_retry",
+            )
+        return schedule
+
     def _guard_login_and_captcha(self, page) -> None:
         if is_login_required(page):
             raise UploadError(
@@ -239,6 +328,196 @@ class TikTokCDPUploader:
                 recommended_action="check_connectivity_and_retry",
             )
 
+    def _set_interactivity(
+        self,
+        page,
+        comment: bool,
+        duet: bool,
+        stitch: bool,
+        cfg: RuntimeConfig,
+    ) -> None:
+        self._set_toggle(page, cfg.selectors_list("comment_toggle"), comment)
+        self._set_toggle(page, cfg.selectors_list("duet_toggle"), duet)
+        self._set_toggle(page, cfg.selectors_list("stitch_toggle"), stitch)
+
+    def _set_toggle(self, page, selectors: list[str], desired: bool) -> None:
+        if not selectors:
+            return
+        try:
+            toggle = find_first_visible(page, selectors, 5000)
+            current = True
+            try:
+                current = bool(toggle.is_checked())
+            except Exception:
+                pass
+            if current ^ desired:
+                toggle.click()
+        except Exception:
+            return
+
+    def _set_visibility(self, page, visibility: str, cfg: RuntimeConfig) -> None:
+        if visibility == "everyone":
+            return
+
+        text_map = {
+            "everyone": "Everyone",
+            "friends": "Friends",
+            "only_you": "Only you",
+        }
+
+        dropdown = find_first_visible(
+            page,
+            cfg.selectors_list("visibility_dropdown"),
+            8000,
+        )
+        dropdown.click()
+        sleep(1)
+
+        option_xpath_template = cfg.selector_string(
+            "visibility_option_xpath_template",
+            "//div[@role='option' and contains(., '{text}')]",
+        )
+        option_xpath = option_xpath_template.format(text=text_map.get(visibility, "Everyone"))
+        option = page.locator(f"xpath={option_xpath}").first
+        option.scroll_into_view_if_needed()
+        option.click()
+
+    def _set_description(self, page, description: str, cfg: RuntimeConfig) -> None:
+        desc = find_first_visible(page, cfg.selectors_list("description"), 8000)
+        desc.click()
+        desc.press("Control+A")
+        desc.press("Backspace")
+
+        words = description.split(" ")
+        for word in words:
+            if not word:
+                continue
+
+            if word.startswith("#"):
+                self._type_word(desc, word)
+                sleep(0.3)
+                try:
+                    mention_box = find_first_visible(
+                        page,
+                        cfg.selectors_list("mention_box"),
+                        self._ms(cfg, "add_hashtag_wait_seconds", 5),
+                    )
+                    if mention_box.is_visible():
+                        desc.press("Enter")
+                except Exception:
+                    pass
+                desc.press_sequentially(" ")
+                continue
+
+            if word.startswith("@"):
+                self._type_word(desc, word)
+                sleep(0.5)
+                try:
+                    users = page.locator(cfg.selectors_list("mention_user_id")[0]).all()
+                    target = word[1:].lower()
+                    chosen = False
+                    for i, user in enumerate(users):
+                        if user.is_visible():
+                            text = user.inner_text().split(" ")[0].lower()
+                            if text == target:
+                                for _ in range(i):
+                                    desc.press("ArrowDown")
+                                desc.press("Enter")
+                                chosen = True
+                                break
+                    if not chosen:
+                        desc.press_sequentially(" ")
+                except Exception:
+                    desc.press_sequentially(" ")
+                continue
+
+            self._type_word(desc, word + " ")
+
+    def _type_word(self, locator, value: str) -> None:
+        try:
+            locator.press_sequentially(value, delay=50)
+        except Exception:
+            locator.type(value)
+
+    def _set_cover(self, page, cover_path: str, cfg: RuntimeConfig) -> None:
+        allowed = set(cfg.file_types.get("supported_image_file_types", ["png", "jpg", "jpeg"]))
+        ext = cover_path.split(".")[-1].lower()
+        if ext not in allowed:
+            raise UploadError(
+                code=ErrorCode.UNKNOWN,
+                message=f"Unsupported cover extension: {ext}",
+                recoverable=False,
+                recommended_action="use_supported_cover_extension",
+            )
+
+        edit_btn = find_first_visible(page, cfg.selectors_list("cover_edit_button"), 8000)
+        edit_btn.click()
+        upload_tab = find_first_visible(page, cfg.selectors_list("cover_upload_tab"), 5000)
+        upload_tab.click()
+        upload_input = find_first_visible(page, cfg.selectors_list("cover_upload_input"), 5000)
+        upload_input.set_input_files(cover_path)
+        confirm = find_first_visible(page, cfg.selectors_list("cover_upload_confirm"), 5000)
+        confirm.click()
+
+    def _set_schedule(self, page, schedule: datetime, cfg: RuntimeConfig) -> None:
+        switch = find_first_visible(page, cfg.selectors_list("schedule_switch"), 8000)
+        switch.click()
+
+        self._pick_schedule_date(page, schedule.month, schedule.day, cfg)
+        self._pick_schedule_time(page, schedule.hour, schedule.minute, cfg)
+
+    def _pick_schedule_date(self, page, month: int, day: int, cfg: RuntimeConfig) -> None:
+        date_picker = find_first_visible(page, cfg.selectors_list("schedule_date_picker"), 8000)
+        date_picker.click()
+
+        _ = find_first_visible(page, cfg.selectors_list("schedule_calendar"), 5000)
+        month_locator = find_first_visible(page, cfg.selectors_list("schedule_calendar_month"), 5000)
+        month_text = month_locator.inner_text().strip()
+        try:
+            visible_month = datetime.strptime(month_text, "%B").month
+        except Exception:
+            visible_month = month
+
+        if visible_month != month:
+            arrows = page.locator(cfg.selectors_list("schedule_calendar_arrows")[0])
+            if visible_month < month:
+                arrows.last.click()
+            else:
+                arrows.first.click()
+
+        days = page.locator(cfg.selectors_list("schedule_calendar_valid_days")[0]).all()
+        for d in days:
+            try:
+                if int(d.inner_text().strip()) == day:
+                    d.click()
+                    return
+            except Exception:
+                continue
+
+        raise UploadError(
+            code=ErrorCode.UI_CHANGED,
+            message="Schedule day selector not found",
+            recoverable=False,
+            recommended_action="update_selectors_then_retry",
+        )
+
+    def _pick_schedule_time(self, page, hour: int, minute: int, cfg: RuntimeConfig) -> None:
+        time_picker = find_first_visible(page, cfg.selectors_list("schedule_time_picker"), 8000)
+        time_picker.click()
+
+        _ = find_first_visible(page, cfg.selectors_list("schedule_time_picker_container"), 5000)
+
+        hour_options = page.locator(cfg.selectors_list("schedule_timepicker_hours")[0])
+        minute_options = page.locator(cfg.selectors_list("schedule_timepicker_minutes")[0])
+
+        hour_el = hour_options.nth(hour)
+        minute_el = minute_options.nth(int(minute / 5))
+
+        hour_el.scroll_into_view_if_needed()
+        hour_el.click()
+        minute_el.scroll_into_view_if_needed()
+        minute_el.click()
+
     def _retry_hint(self, code: ErrorCode, recoverable: bool) -> str:
         if code == ErrorCode.CAPTCHA_DETECTED:
             return "retry_after_human_step"
@@ -250,6 +529,8 @@ class TikTokCDPUploader:
             return "retry_with_backoff"
         if code == ErrorCode.CONTENT_REJECTED:
             return "do_not_retry_without_content_change"
+        if code == ErrorCode.INVALID_SCHEDULE:
+            return "do_not_retry_without_input_change"
         if code in {ErrorCode.CDP_CONNECT_FAILED, ErrorCode.NOT_LOGGED_IN}:
             return "retry_after_environment_fix"
         if code == ErrorCode.UPLOAD_TIMEOUT and recoverable:
@@ -260,14 +541,15 @@ class TikTokCDPUploader:
             return "retry_once"
         return "do_not_retry_without_human_review"
 
-    def _wait_processing_ready(self, page, timeout_ms: int) -> None:
-        post_button = find_first_visible(page, POST_BUTTON_SELECTORS, 10_000)
+    def _wait_processing_ready(self, page, timeout_ms: int, cfg: RuntimeConfig) -> None:
+        post_button = find_first_visible(page, cfg.selectors_list("post_button"), 10_000)
         deadline = datetime.now(timezone.utc).timestamp() + (timeout_ms / 1000)
         while datetime.now(timezone.utc).timestamp() < deadline:
             state = post_button.get_attribute("data-disabled")
             if state in (None, "false"):
                 return
             sleep(0.5)
+
         raise UploadError(
             code=ErrorCode.PROCESSING_STUCK,
             message="Video processing did not reach ready-to-post state in time",
@@ -275,8 +557,8 @@ class TikTokCDPUploader:
             recommended_action="wait_then_retry_once_then_human_review",
         )
 
-    def _handle_optional_post_now_modal(self, page) -> bool:
-        for selector in POST_NOW_MODAL_SELECTORS:
+    def _handle_optional_post_now_modal(self, page, cfg: RuntimeConfig) -> bool:
+        for selector in cfg.selectors_list("post_now_modal"):
             try:
                 btn = page.locator(selector).first
                 if btn.is_visible(timeout=1200):

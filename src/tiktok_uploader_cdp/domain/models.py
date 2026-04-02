@@ -14,6 +14,13 @@ class UploadRequest:
     cdp_url: str = "http://127.0.0.1:9222"
     upload_url: str = "https://www.tiktok.com/creator-center/upload?lang=en"
     timeout_seconds: int = 120
+    schedule: datetime | None = None
+    visibility: str = "everyone"
+    comment: bool = True
+    duet: bool = True
+    stitch: bool = True
+    cover_path: str | None = None
+    config_path: str | None = None
     dry_run: bool = False
     request_id: str | None = None
     screenshot_dir: str | None = None

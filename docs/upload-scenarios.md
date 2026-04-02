@@ -16,6 +16,8 @@ This matrix records simulated upload situations, expected handling, and identifi
 | Processing never reaches ready state | monkeypatch `_wait_processing_ready` to raise | `error_code=processing_stuck`, `retry_hint=retry_once` | delayed retry once, then escalate | covered |
 | Post click fails | simulated click exception on post locator | `error_code=post_failed` | one retry, then escalate | covered |
 | Post now modal appears | monkeypatch `_handle_optional_post_now_modal=True` | step `click_post_now_modal` appears, flow continues | no manual intervention required | covered |
+| Invalid schedule input | pass schedule < 20 minutes | `error_code=invalid_schedule` | reject input and require corrected schedule | covered |
+| Missing cover image | pass non-existing cover path | `error_code=file_not_found` | reject input and require corrected cover path | covered |
 | Failure screenshot artifact | run error flow with `screenshot_dir` | `artifacts.error_screenshot` path present | attach to alert/ticket | covered |
 
 ## Important Scenarios Not Yet Fully Covered

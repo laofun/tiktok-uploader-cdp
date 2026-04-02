@@ -16,11 +16,18 @@ uv run tiktok-uploader-cdp \
   --cdp-url http://127.0.0.1:9222 \
   --video /abs/path/video.mp4 \
   --description "caption" \
+  --visibility friends \
+  --comment \
+  --duet \
+  --stitch \
+  --cover /abs/path/cover.jpg \
   --request-id job-123 \
   --screenshot-dir /tmp/tiktok-uploader-cdp
 ```
 
 Use `--dry-run` for preflight checks before real publish.
+Use `--schedule "YYYY-MM-DD HH:MM"` (UTC) only when a delayed post is needed.
+Use `--config /abs/path/config.toml` when you maintain selectors externally.
 
 ## Decision State Machine
 
@@ -37,6 +44,7 @@ Use `--dry-run` for preflight checks before real publish.
 - `processing_stuck`: allow one delayed retry; if repeated, escalate for platform-side investigation.
 - `upload_timeout` or `post_failed`: allow one automatic retry, then escalate to human review.
 - `unknown_error`: direct escalate to human review.
+- `invalid_schedule`: mark as input validation failure; do not retry without schedule correction.
 
 ## Logging Requirements
 

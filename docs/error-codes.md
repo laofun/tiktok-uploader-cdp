@@ -22,6 +22,7 @@ This document defines stable error semantics for OpenClaw orchestration.
 | `network_error` | Network/connectivity issue detected on page | `true` | `retry_with_backoff` | `check_connectivity_and_retry` |
 | `ui_changed` | Known selector set failed, likely TikTok UI drift | `false` | `do_not_retry_until_selector_update` | `update_selectors_then_retry` |
 | `file_not_found` | Input video path does not exist | `false` | `do_not_retry_without_input_change` | `fix_input_file_path` |
+| `invalid_schedule` | Schedule does not satisfy TikTok constraints | `false` | `do_not_retry_without_input_change` | `fix_schedule_and_retry` |
 | `processing_stuck` | Upload was attached but processing never reached post-ready state | `true` | `retry_once` | `wait_then_retry_once_then_human_review` |
 | `upload_timeout` | Upload/publish confirmation did not appear in time | `true` | `retry_once` | `retry_once_then_human_review` |
 | `post_failed` | Post click or post flow failed unexpectedly | `true` | `retry_once` | `retry_once_then_human_review` |

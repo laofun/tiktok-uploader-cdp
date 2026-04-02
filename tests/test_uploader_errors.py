@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from tiktok_uploader_cdp.app.uploader import TikTokCDPUploader
@@ -418,9 +419,32 @@ def test_post_now_modal_step(monkeypatch, tmp_path):
     monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_network_error", lambda page: False)
     monkeypatch.setattr(
         "tiktok_uploader_cdp.app.uploader.TikTokCDPUploader._handle_optional_post_now_modal",
-        lambda self, page: True,
+        lambda self, page, cfg: True,
     )
 
     result = TikTokCDPUploader().upload(UploadRequest(video_path=str(video)))
     assert result.ok is True
     assert any(step.name == "click_post_now_modal" for step in result.steps)
+
+
+def test_invalid_schedule_rejected(tmp_path):
+    video = tmp_path / "l.mp4"
+    video.write_text("x", encoding="utf-8")
+
+    bad_schedule = datetime.now(timezone.utc) + timedelta(minutes=5)
+    result = TikTokCDPUploader().upload(
+        UploadRequest(video_path=str(video), schedule=bad_schedule)
+    )
+    assert result.ok is False
+    assert result.error_code == ErrorCode.INVALID_SCHEDULE
+
+
+def test_cover_missing_file_returns_file_not_found(tmp_path):
+    video = tmp_path / "m.mp4"
+    video.write_text("x", encoding="utf-8")
+
+    result = TikTokCDPUploader().upload(
+        UploadRequest(video_path=str(video), cover_path=str(tmp_path / "missing.jpg"))
+    )
+    assert result.ok is False
+    assert result.error_code == ErrorCode.FILE_NOT_FOUND

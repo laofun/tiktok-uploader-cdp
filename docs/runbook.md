@@ -112,3 +112,25 @@ Actions:
 1. Wait short cooldown and retry once.
 2. If repeated, escalate with screenshot + steps.
 3. Check file codec/size and TikTok processing health.
+
+## 11) invalid_schedule
+
+Symptoms:
+- `error_code=invalid_schedule`
+- schedule outside allowed window
+
+Actions:
+1. Ensure schedule is UTC.
+2. Set schedule between 20 minutes and 10 days in the future.
+3. Re-submit job with corrected schedule.
+
+## 12) selector drift under new features
+
+Symptoms:
+- failures while setting visibility/interactivity/schedule/cover/mentions
+- often appears as `ui_changed` or `post_failed`
+
+Actions:
+1. Update selectors in `src/tiktok_uploader_cdp/config.toml`.
+2. Prefer selector updates before changing code.
+3. Re-run dry-run script and inspect step trace.
