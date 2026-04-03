@@ -19,7 +19,8 @@ class DummyLocator:
     def is_visible(self, timeout: int = 0) -> bool:
         return False
 
-    def set_input_files(self, path: str) -> None:
+    def set_input_files(self, path: str, timeout: int | None = None) -> None:
+        _ = timeout
         return None
 
     def click(self) -> None:

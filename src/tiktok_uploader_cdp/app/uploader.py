@@ -84,12 +84,7 @@ class TikTokCDPUploader:
             self._guard_login_and_captcha(page)
             steps.append(StepResult("guard_login_captcha", True, "clean"))
 
-            upload_input = find_first_visible(
-                page,
-                cfg.selectors_list("upload_input"),
-                self._ms(cfg, "implicit_wait_seconds", 30),
-            )
-            upload_input.set_input_files(req.video_path)
+            self._set_video_input(page, req.video_path, cfg)
             steps.append(StepResult("attach_video", True, req.video_path))
 
             self._wait_processing_ready(
@@ -633,6 +628,47 @@ class TikTokCDPUploader:
             recoverable=False,
             recommended_action="update_selectors_then_retry",
         )
+
+    def _set_video_input(self, page, video_path: str, cfg: RuntimeConfig) -> None:
+        selectors = cfg.selectors_list("upload_input")
+        timeout_ms = self._ms(cfg, "implicit_wait_seconds", 30)
+
+        # 1) Try in main page first.
+        locator = self._try_find_attached_in_page(page, selectors, timeout_ms)
+        if locator is not None and self._try_set_input_files(locator, video_path):
+            return
+
+        # 2) Fallback: scan all iframes (TikTok Studio sometimes nests upload UI).
+        for frame in getattr(page, "frames", []):
+            locator = self._try_find_attached_in_page(frame, selectors, timeout_ms)
+            if locator is not None and self._try_set_input_files(locator, video_path):
+                return
+
+        raise UploadError(
+            code=ErrorCode.UI_CHANGED,
+            message=f"No selector matched from candidates: {selectors}",
+            recoverable=False,
+            recommended_action="update_selectors_then_retry",
+        )
+
+    def _try_find_attached_in_page(self, page_or_frame, selectors: list[str], timeout_ms: int):
+        for selector in selectors:
+            try:
+                loc = page_or_frame.locator(selector).first
+                loc.wait_for(state="attached", timeout=timeout_ms)
+                return loc
+            except Exception:
+                continue
+        return None
+
+    def _try_set_input_files(self, locator, video_path: str) -> bool:
+        for _ in range(2):
+            try:
+                locator.set_input_files(video_path, timeout=15_000)
+                return True
+            except Exception:
+                sleep(0.8)
+        return False
 
     def _handle_content_restriction_modal(
         self,
