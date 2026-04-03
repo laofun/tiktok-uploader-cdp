@@ -12,7 +12,7 @@ class UploadRequest:
     video_path: str
     description: str = ""
     cdp_url: str = "http://127.0.0.1:9222"
-    upload_url: str = "https://www.tiktok.com/creator-center/upload?lang=en"
+    upload_url: str = "https://www.tiktok.com/tiktokstudio/upload?lang=en"
     timeout_seconds: int = 120
     schedule: datetime | None = None
     visibility: str = "everyone"

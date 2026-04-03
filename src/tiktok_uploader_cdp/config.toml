@@ -15,6 +15,7 @@ supported_image_file_types = ["png", "jpg", "jpeg"]
 
 [selectors]
 upload_input = [
+  "input[type='file'][accept='video/*']",
   "input[type='file'][accept*='video']",
   "input[type='file']",
   "xpath=//input[@type='file' and contains(@accept,'video')]",

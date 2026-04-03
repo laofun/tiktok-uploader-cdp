@@ -17,8 +17,12 @@ flowchart TD
     I -- No --> I1[not logged in or captcha or rate limited or network error]
     I -- Yes --> J[Attach video input]
     J --> K{Attach success}
-    K -- No --> K1[ui changed]
-    K -- Yes --> N[Set interactivity]
+    K -- No --> K1[Try alternate upload URL once]
+    K1 --> K2{Attach success on fallback}
+    K2 -- No --> K3[ui changed]
+    K2 -- Yes --> K4[Detect upload state]
+    K -- Yes --> K4[Detect upload state]
+    K4 --> N[Set interactivity]
     N --> O[Set visibility]
     O --> P[Set description optional]
     P --> Q[Set cover optional]

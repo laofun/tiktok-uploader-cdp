@@ -40,7 +40,7 @@
 
 ### Default URL
 
-- `https://www.tiktok.com/creator-center/upload?lang=en`
+- `https://www.tiktok.com/tiktokstudio/upload?lang=en`
 
 ### Notes
 

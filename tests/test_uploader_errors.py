@@ -582,3 +582,67 @@ def test_attach_video_accepts_already_attached_state(monkeypatch, tmp_path):
     attach_step = next((s for s in result.steps if s.name == "attach_video"), None)
     assert attach_step is not None
     assert "already_attached" in attach_step.detail
+    detect_step = next((s for s in result.steps if s.name == "detect_upload_state"), None)
+    assert detect_step is not None
+    assert detect_step.detail == "already_attached"
+
+
+def test_attach_video_retries_on_alternate_upload_url(monkeypatch, tmp_path):
+    video = tmp_path / "q.mp4"
+    video.write_text("x", encoding="utf-8")
+
+    class DummyConnector:
+        def __init__(self, cdp_url: str):
+            self.cdp_url = cdp_url
+
+        def connect(self):
+            return SimpleNamespace(page=DummyPage())
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.CDPConnector", DummyConnector)
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_captcha", lambda page: False)
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.is_login_required", lambda page: False
+    )
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_rate_limit", lambda page: False)
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.has_content_rejection", lambda page: False
+    )
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_network_error", lambda page: False)
+
+    state = {"calls": 0}
+
+    def first_fail_then_ok(self, page, video_path, cfg):
+        _ = page, video_path, cfg
+        state["calls"] += 1
+        if state["calls"] == 1:
+            from tiktok_uploader_cdp.domain.errors import UploadError
+
+            raise UploadError(
+                code=ErrorCode.UI_CHANGED,
+                message="input selector miss",
+                recoverable=False,
+                recommended_action="update_selectors_then_retry",
+            )
+        return "set_input_files"
+
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.TikTokCDPUploader._set_video_input",
+        first_fail_then_ok,
+    )
+
+    result = TikTokCDPUploader().upload(
+        UploadRequest(
+            video_path=str(video),
+            upload_url="https://www.tiktok.com/creator-center/upload?lang=en",
+        )
+    )
+    assert result.ok is True
+    step_names = [s.name for s in result.steps]
+    assert "goto_upload_fallback" in step_names
+    assert "guard_login_captcha_fallback" in step_names
+    detect_step = next((s for s in result.steps if s.name == "detect_upload_state"), None)
+    assert detect_step is not None
+    assert detect_step.detail == "set_input_files"

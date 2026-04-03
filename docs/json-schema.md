@@ -43,10 +43,11 @@ Current response schema version: `1.1.0`
   "created_at_utc": "2026-04-02T10:20:00+00:00",
   "steps": [
     {"name": "connect_cdp", "ok": true, "detail": "connected", "error_code": null},
-    {"name": "goto_upload", "ok": true, "detail": "https://www.tiktok.com/creator-center/upload?lang=en", "error_code": null}
+    {"name": "goto_upload", "ok": true, "detail": "https://www.tiktok.com/tiktokstudio/upload?lang=en", "error_code": null},
+    {"name": "detect_upload_state", "ok": true, "detail": "set_input_files", "error_code": null}
   ],
   "artifacts": {},
-  "metadata": {"final_url": "https://www.tiktok.com/creator-center/upload?lang=en"}
+  "metadata": {"final_url": "https://www.tiktok.com/tiktokstudio/upload?lang=en"}
 }
 ```
 

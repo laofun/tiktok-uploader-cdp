@@ -12,7 +12,7 @@ uv run tiktok-uploader-cdp [options]
 - `--cdp-url`: CDP endpoint. Default: `http://127.0.0.1:9222`
 - `--video` (required): absolute video path
 - `--description`: caption text
-- `--upload-url`: target TikTok upload URL
+- `--upload-url`: target TikTok upload URL. Default: `https://www.tiktok.com/tiktokstudio/upload?lang=en`
 - `--timeout-seconds`: max wait for publish confirmation
 
 ## Config Options

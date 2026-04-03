@@ -84,13 +84,27 @@ class TikTokCDPUploader:
             self._guard_login_and_captcha(page)
             steps.append(StepResult("guard_login_captcha", True, "clean"))
 
-            attach_mode = self._set_video_input(page, req.video_path, cfg)
+            try:
+                attach_mode = self._set_video_input(page, req.video_path, cfg)
+            except UploadError as exc:
+                if exc.code != ErrorCode.UI_CHANGED:
+                    raise
+                fallback_url = self._alternate_upload_url(req.upload_url)
+                if not fallback_url:
+                    raise
+                page.goto(fallback_url, wait_until="domcontentloaded")
+                steps.append(StepResult("goto_upload_fallback", True, page.url))
+                self._guard_login_and_captcha(page)
+                steps.append(StepResult("guard_login_captcha_fallback", True, "clean"))
+                attach_mode = self._set_video_input(page, req.video_path, cfg)
+
             if attach_mode == "already_attached":
                 steps.append(
                     StepResult("attach_video", True, f"{req.video_path} (already_attached)")
                 )
             else:
                 steps.append(StepResult("attach_video", True, req.video_path))
+            steps.append(StepResult("detect_upload_state", True, attach_mode))
 
             self._set_interactivity(page, req.comment, req.duet, req.stitch, cfg)
             steps.append(
@@ -264,6 +278,13 @@ class TikTokCDPUploader:
 
     def _ms(self, cfg: RuntimeConfig, key: str, default_seconds: int) -> int:
         return int(cfg.timeouts.get(key, default_seconds)) * 1000
+
+    def _alternate_upload_url(self, url: str) -> str | None:
+        if "creator-center/upload" in url:
+            return url.replace("creator-center/upload", "tiktokstudio/upload")
+        if "tiktokstudio/upload" in url:
+            return url.replace("tiktokstudio/upload", "creator-center/upload")
+        return None
 
     def _normalize_schedule(
         self,
@@ -671,10 +692,23 @@ class TikTokCDPUploader:
         if basename not in body_text:
             return False
 
-        # Require one stable metadata region signal to reduce false positives.
+        # Require stable metadata + post button signals to reduce false positives.
+        has_description = False
         for selector in cfg.selectors_list("description"):
             try:
                 if page.locator(selector).first.is_visible(timeout=1200):
+                    has_description = True
+                    break
+            except Exception:
+                continue
+        if not has_description:
+            return False
+
+        for selector in cfg.selectors_list("post_button"):
+            try:
+                btn = page.locator(selector).first
+                if btn.is_visible(timeout=1200):
+                    _ = btn.get_attribute("data-disabled")
                     return True
             except Exception:
                 continue

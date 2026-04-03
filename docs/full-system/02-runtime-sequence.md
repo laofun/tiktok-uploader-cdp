@@ -31,6 +31,9 @@ Possible hard-stop errors:
 2. Emit step: `goto_upload`.
 3. Run guard checks: login, captcha, rate-limit, network.
 4. Emit step: `guard_login_captcha`.
+5. If `attach_video` later fails with `ui_changed`, uploader retries once on alternate upload URL (`creator-center <-> tiktokstudio`) and emits:
+- `goto_upload_fallback`
+- `guard_login_captcha_fallback`
 
 Possible hard-stop errors:
 
@@ -44,6 +47,7 @@ Possible hard-stop errors:
 1. Resolve upload input selector (main page first, then iframes).
 2. Set video file with retry.
 3. Emit step: `attach_video`.
+4. Emit step: `detect_upload_state` (`set_input_files` or `already_attached`).
 
 Possible hard-stop errors:
 
@@ -111,18 +115,19 @@ Normal full publish run:
 2. `goto_upload`
 3. `guard_login_captcha`
 4. `attach_video`
-5. `set_interactivity`
-6. `set_visibility`
-7. `set_description` (optional)
-8. `set_cover` (optional)
-9. `set_schedule` (optional)
-10. `wait_processing_ready`
-11. `guard_before_post`
-12. `click_post`
-13. `click_post_now_modal` (optional)
-14. `toggle_content_check` (optional)
-15. `continue_content_modal` (optional)
-16. `retry_post_after_content_modal` (optional)
-17. `wait_publish_confirmation`
+5. `detect_upload_state`
+6. `set_interactivity`
+7. `set_visibility`
+8. `set_description` (optional)
+9. `set_cover` (optional)
+10. `set_schedule` (optional)
+11. `wait_processing_ready`
+12. `guard_before_post`
+13. `click_post`
+14. `click_post_now_modal` (optional)
+15. `toggle_content_check` (optional)
+16. `continue_content_modal` (optional)
+17. `retry_post_after_content_modal` (optional)
+18. `wait_publish_confirmation`
 
 Any failure appends final step `failed`.

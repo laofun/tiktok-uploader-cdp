@@ -47,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cover", default=None)
     parser.add_argument(
         "--upload-url",
-        default="https://www.tiktok.com/creator-center/upload?lang=en",
+        default="https://www.tiktok.com/tiktokstudio/upload?lang=en",
     )
     parser.add_argument("--timeout-seconds", type=int, default=120)
     parser.add_argument("--dry-run", action="store_true", default=False)
