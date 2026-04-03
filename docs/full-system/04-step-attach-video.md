@@ -38,7 +38,9 @@ Bind local video file path to the correct TikTok upload `<input type=file>` reli
 
 ### Stage D - fail if no success
 
-- Throw `ui_changed` with message containing selector candidate list.
+1. If input selectors fail, check whether the target video filename is already present in page body text and description area is visible.
+2. If yes, treat as existing attached/uploading state and continue (`attach_video` detail includes `already_attached`).
+3. If not, throw `ui_changed` with message containing selector candidate list.
 
 ## Why `attached` is used instead of `visible`
 

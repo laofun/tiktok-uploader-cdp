@@ -4,6 +4,7 @@ import argparse
 import datetime
 import json
 import sys
+from importlib.metadata import version
 
 from tiktok_uploader_cdp.app.uploader import TikTokCDPUploader
 from tiktok_uploader_cdp.domain.models import UploadRequest
@@ -11,6 +12,11 @@ from tiktok_uploader_cdp.domain.models import UploadRequest
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Upload TikTok video using existing login over CDP")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"tiktok-uploader-cdp {version('tiktok-uploader-cdp')}",
+    )
     parser.add_argument("--cdp-url", default="http://127.0.0.1:9222")
     parser.add_argument("--config", default=None)
     parser.add_argument("--video", required=True)

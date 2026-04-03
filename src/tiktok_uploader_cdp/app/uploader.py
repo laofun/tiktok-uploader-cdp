@@ -84,8 +84,13 @@ class TikTokCDPUploader:
             self._guard_login_and_captcha(page)
             steps.append(StepResult("guard_login_captcha", True, "clean"))
 
-            self._set_video_input(page, req.video_path, cfg)
-            steps.append(StepResult("attach_video", True, req.video_path))
+            attach_mode = self._set_video_input(page, req.video_path, cfg)
+            if attach_mode == "already_attached":
+                steps.append(
+                    StepResult("attach_video", True, f"{req.video_path} (already_attached)")
+                )
+            else:
+                steps.append(StepResult("attach_video", True, req.video_path))
 
             self._set_interactivity(page, req.comment, req.duet, req.stitch, cfg)
             steps.append(
@@ -630,20 +635,24 @@ class TikTokCDPUploader:
             recommended_action="update_selectors_then_retry",
         )
 
-    def _set_video_input(self, page, video_path: str, cfg: RuntimeConfig) -> None:
+    def _set_video_input(self, page, video_path: str, cfg: RuntimeConfig) -> str:
         selectors = cfg.selectors_list("upload_input")
         timeout_ms = self._ms(cfg, "implicit_wait_seconds", 30)
 
         # 1) Try in main page first.
         locator = self._try_find_attached_in_page(page, selectors, timeout_ms)
         if locator is not None and self._try_set_input_files(locator, video_path):
-            return
+            return "set_input_files"
 
         # 2) Fallback: scan all iframes (TikTok Studio sometimes nests upload UI).
         for frame in getattr(page, "frames", []):
             locator = self._try_find_attached_in_page(frame, selectors, timeout_ms)
             if locator is not None and self._try_set_input_files(locator, video_path):
-                return
+                return "set_input_files"
+
+        # 3) If input is not found, check whether video is already attached/uploading.
+        if self._is_video_already_attached(page, video_path, cfg):
+            return "already_attached"
 
         raise UploadError(
             code=ErrorCode.UI_CHANGED,
@@ -651,6 +660,25 @@ class TikTokCDPUploader:
             recoverable=False,
             recommended_action="update_selectors_then_retry",
         )
+
+    def _is_video_already_attached(self, page, video_path: str, cfg: RuntimeConfig) -> bool:
+        basename = Path(video_path).name.lower()
+        try:
+            body_text = page.inner_text("body").lower()
+        except Exception:
+            return False
+
+        if basename not in body_text:
+            return False
+
+        # Require one stable metadata region signal to reduce false positives.
+        for selector in cfg.selectors_list("description"):
+            try:
+                if page.locator(selector).first.is_visible(timeout=1200):
+                    return True
+            except Exception:
+                continue
+        return False
 
     def _try_find_attached_in_page(self, page_or_frame, selectors: list[str], timeout_ms: int):
         for selector in selectors:

@@ -8,6 +8,7 @@ uv run tiktok-uploader-cdp [options]
 
 ## Core Options
 
+- `--version`: print installed CLI version and exit
 - `--cdp-url`: CDP endpoint. Default: `http://127.0.0.1:9222`
 - `--video` (required): absolute video path
 - `--description`: caption text

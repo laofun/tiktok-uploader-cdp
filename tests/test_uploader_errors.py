@@ -542,3 +542,43 @@ def test_metadata_steps_run_before_wait_processing_ready(monkeypatch, tmp_path):
     assert idx["set_interactivity"] < idx["set_visibility"]
     assert idx["set_visibility"] < idx["wait_processing_ready"]
     assert idx["wait_processing_ready"] < idx["guard_before_post"]
+
+
+def test_attach_video_accepts_already_attached_state(monkeypatch, tmp_path):
+    video = tmp_path / "p.mp4"
+    video.write_text("x", encoding="utf-8")
+
+    class DummyConnector:
+        def __init__(self, cdp_url: str):
+            self.cdp_url = cdp_url
+
+        def connect(self):
+            return SimpleNamespace(page=DummyPage())
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.CDPConnector", DummyConnector)
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_captcha", lambda page: False)
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.is_login_required", lambda page: False
+    )
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_rate_limit", lambda page: False)
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.has_content_rejection", lambda page: False
+    )
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_network_error", lambda page: False)
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.TikTokCDPUploader._try_find_attached_in_page",
+        lambda self, page_or_frame, selectors, timeout_ms: None,
+    )
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.TikTokCDPUploader._is_video_already_attached",
+        lambda self, page, video_path, cfg: True,
+    )
+
+    result = TikTokCDPUploader().upload(UploadRequest(video_path=str(video)))
+    assert result.ok is True
+    attach_step = next((s for s in result.steps if s.name == "attach_video"), None)
+    assert attach_step is not None
+    assert "already_attached" in attach_step.detail

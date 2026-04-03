@@ -20,6 +20,7 @@ This matrix records simulated upload situations, expected handling, and identifi
 | Invalid schedule input | pass schedule < 20 minutes | `error_code=invalid_schedule` | reject input and require corrected schedule | covered |
 | Missing cover image | pass non-existing cover path | `error_code=file_not_found` | reject input and require corrected cover path | covered |
 | Failure screenshot artifact | run error flow with `screenshot_dir` | `artifacts.error_screenshot` path present | attach to alert/ticket | covered |
+| Upload input unavailable but video already attached in UI | monkeypatch `_try_find_attached_in_page=None` + `_is_video_already_attached=True` | flow continues with `attach_video` detail containing `already_attached` | continue metadata/post flow without false `ui_changed` | covered |
 
 ## Important Scenarios Not Yet Fully Covered
 
