@@ -71,6 +71,8 @@ Use `--dry-run` to validate CDP connection, login state, captcha state, upload i
 
 ## Documentation Map
 
+- `docs/full-system/00-index.md`: full low-level runtime map (phase-by-phase, fallback, retry, maintenance).
+- `docs/full-system/11-mermaid-flows.md`: visual Mermaid diagrams for runtime flow, content modal flow, and OpenClaw state machine.
 - `docs/error-codes.md`: canonical error table, retry hints, and actions.
 - `docs/cli-reference.md`: complete CLI options and examples.
 - `docs/config-reference.md`: `config.toml` structure and selector strategy.

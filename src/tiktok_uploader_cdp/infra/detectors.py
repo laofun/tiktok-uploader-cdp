@@ -2,11 +2,21 @@ from __future__ import annotations
 
 from playwright.sync_api import Page
 
-from tiktok_uploader_cdp.infra.selectors import (
-    CAPTCHA_SELECTORS,
-    CAPTCHA_TEXT_MARKERS,
-    LOGIN_BLOCKING_URL_KEYWORDS,
-)
+LOGIN_BLOCKING_URL_KEYWORDS = ["/login", "/signup"]
+
+CAPTCHA_TEXT_MARKERS = [
+    "captcha",
+    "verify",
+    "drag the puzzle",
+    "security check",
+    "are you human",
+]
+
+CAPTCHA_SELECTORS = [
+    "iframe[src*='captcha']",
+    "div[class*='captcha']",
+    "div[data-e2e*='captcha']",
+]
 
 RATE_LIMIT_TEXT_MARKERS = [
     "too many attempts",

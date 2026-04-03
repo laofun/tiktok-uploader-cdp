@@ -87,13 +87,6 @@ class TikTokCDPUploader:
             self._set_video_input(page, req.video_path, cfg)
             steps.append(StepResult("attach_video", True, req.video_path))
 
-            self._wait_processing_ready(
-                page,
-                self._ms(cfg, "processing_ready_timeout_seconds", 90),
-                cfg,
-            )
-            steps.append(StepResult("wait_processing_ready", True, "post_button_enabled"))
-
             self._set_interactivity(page, req.comment, req.duet, req.stitch, cfg)
             steps.append(
                 StepResult(
@@ -123,6 +116,14 @@ class TikTokCDPUploader:
                         normalized_schedule.isoformat(),
                     )
                 )
+
+            # Do metadata work while video is still processing, then wait right before posting.
+            self._wait_processing_ready(
+                page,
+                self._ms(cfg, "processing_ready_timeout_seconds", 90),
+                cfg,
+            )
+            steps.append(StepResult("wait_processing_ready", True, "post_button_enabled"))
 
             self._guard_login_and_captcha(page)
             steps.append(StepResult("guard_before_post", True, "clean"))

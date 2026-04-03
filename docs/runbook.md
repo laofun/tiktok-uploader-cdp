@@ -25,7 +25,7 @@ Symptoms:
 
 Actions:
 1. Open screenshot from `artifacts.error_screenshot`.
-2. Compare current TikTok DOM with selector lists in `src/tiktok_uploader_cdp/infra/selectors.py`.
+2. Compare current TikTok DOM with selector lists in `src/tiktok_uploader_cdp/config.toml` and detector checks in `src/tiktok_uploader_cdp/infra/detectors.py`.
 3. Add fallback selectors first; avoid replacing all selectors blindly.
 4. Run `uv run pytest -q`.
 5. Run a dry-run job to verify pre-post flow.

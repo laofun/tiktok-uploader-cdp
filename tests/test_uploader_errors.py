@@ -506,3 +506,39 @@ def test_content_modal_flow_adds_expected_steps(monkeypatch, tmp_path):
     assert "toggle_content_check" in step_names
     assert "continue_content_modal" in step_names
     assert "retry_post_after_content_modal" in step_names
+
+
+def test_metadata_steps_run_before_wait_processing_ready(monkeypatch, tmp_path):
+    video = tmp_path / "o.mp4"
+    video.write_text("x", encoding="utf-8")
+
+    class DummyConnector:
+        def __init__(self, cdp_url: str):
+            self.cdp_url = cdp_url
+
+        def connect(self):
+            return SimpleNamespace(page=DummyPage())
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.CDPConnector", DummyConnector)
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_captcha", lambda page: False)
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.is_login_required", lambda page: False
+    )
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_rate_limit", lambda page: False)
+    monkeypatch.setattr(
+        "tiktok_uploader_cdp.app.uploader.has_content_rejection", lambda page: False
+    )
+    monkeypatch.setattr("tiktok_uploader_cdp.app.uploader.has_network_error", lambda page: False)
+
+    result = TikTokCDPUploader().upload(UploadRequest(video_path=str(video)))
+    assert result.ok is True
+
+    step_names = [s.name for s in result.steps]
+    idx = {name: step_names.index(name) for name in step_names}
+    assert idx["attach_video"] < idx["set_interactivity"]
+    assert idx["set_interactivity"] < idx["set_visibility"]
+    assert idx["set_visibility"] < idx["wait_processing_ready"]
+    assert idx["wait_processing_ready"] < idx["guard_before_post"]

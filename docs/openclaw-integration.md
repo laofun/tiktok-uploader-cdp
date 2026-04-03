@@ -2,6 +2,9 @@
 
 This guide describes how OpenClaw should orchestrate `tiktok-uploader-cdp` safely.
 
+For a full phase-by-phase internals walkthrough, read `docs/full-system/00-index.md`.
+For visual flowcharts, read `docs/full-system/11-mermaid-flows.md`.
+
 ## Preconditions
 
 1. Browser is launched with CDP enabled (example endpoint `http://127.0.0.1:9222`).
